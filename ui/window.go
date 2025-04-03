@@ -27,6 +27,8 @@ type Visualizer struct {
 
 	sz  size.Event
 	pos image.Rectangle
+
+	FigurePos image.Rectangle
 }
 
 func (pw *Visualizer) Main() {
@@ -34,6 +36,9 @@ func (pw *Visualizer) Main() {
 	pw.done = make(chan struct{})
 	pw.pos.Max.X = 200
 	pw.pos.Max.Y = 200
+
+	pw.FigurePos = image.Rect(300, 300, 550, 500)
+
 	driver.Main(pw.run)
 }
 
@@ -43,7 +48,9 @@ func (pw *Visualizer) Update(t screen.Texture) {
 
 func (pw *Visualizer) run(s screen.Screen) {
 	w, err := s.NewWindow(&screen.NewWindowOptions{
-		Title: pw.Title,
+		Title:  pw.Title,
+		Width:  800,
+		Height: 800,
 	})
 	if err != nil {
 		log.Fatal("Failed to initialize the app window:", err)
@@ -94,11 +101,11 @@ func detectTerminate(e any) bool {
 	switch e := e.(type) {
 	case lifecycle.Event:
 		if e.To == lifecycle.StageDead {
-			return true // Window destroy initiated.
+			return true
 		}
 	case key.Event:
 		if e.Code == key.CodeEscape {
-			return true // Esc pressed.
+			return true
 		}
 	}
 	return false
@@ -107,7 +114,7 @@ func detectTerminate(e any) bool {
 func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 	switch e := e.(type) {
 
-	case size.Event: // Оновлення даних про розмір вікна.
+	case size.Event:
 		pw.sz = e
 
 	case error:
@@ -115,15 +122,23 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 
 	case mouse.Event:
 		if t == nil {
-			// TODO: Реалізувати реакцію на натискання кнопки миші.
+			if e.Button == mouse.ButtonRight && e.Direction == mouse.DirPress {
+				newX := int(e.X)
+				newY := int(e.Y)
+
+				pw.FigurePos = image.Rect(
+					newX-25, newY-100,
+					newX+225, newY+25,
+				)
+
+				pw.w.Send(paint.Event{})
+			}
 		}
 
 	case paint.Event:
-		// Малювання контенту вікна.
 		if t == nil {
 			pw.drawDefaultUI()
 		} else {
-			// Використання текстури отриманої через виклик Update.
 			pw.w.Scale(pw.sz.Bounds(), t, t.Bounds(), draw.Src, nil)
 		}
 		pw.w.Publish()
@@ -131,11 +146,28 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 }
 
 func (pw *Visualizer) drawDefaultUI() {
-	pw.w.Fill(pw.sz.Bounds(), color.Black, draw.Src) // Фон.
+	pw.w.Fill(pw.sz.Bounds(), color.White, draw.Src)
 
-	// TODO: Змінити колір фону та додати відображення фігури у вашому варіанті.
+	if pw.FigurePos.Empty() {
+		centerX := 800 / 2
+		centerY := 800 / 2
+		pw.FigurePos = image.Rect(
+			centerX-25, centerY-100,
+			centerX+225, centerY+25,
+		)
+	}
 
-	// Малювання білої рамки.
+	vertical := image.Rect(
+		pw.FigurePos.Min.X, pw.FigurePos.Min.Y,
+		pw.FigurePos.Min.X+50, pw.FigurePos.Min.Y+200,
+	)
+	horizontal := image.Rect(
+		pw.FigurePos.Min.X+50, pw.FigurePos.Min.Y+75,
+		pw.FigurePos.Min.X+250, pw.FigurePos.Min.Y+125,
+	)
+	pw.w.Fill(vertical, color.RGBA{B: 255, A: 255}, draw.Src)
+	pw.w.Fill(horizontal, color.RGBA{B: 255, A: 255}, draw.Src)
+
 	for _, br := range imageutil.Border(pw.sz.Bounds(), 10) {
 		pw.w.Fill(br, color.White, draw.Src)
 	}
