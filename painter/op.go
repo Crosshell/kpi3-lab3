@@ -8,38 +8,53 @@ import (
 )
 
 type Operation interface {
-	Do(t screen.Texture) (ready bool)
+	Do(state TextureState) TextureState
 }
 
 type OperationList []Operation
 
-func (ol OperationList) Do(t screen.Texture) (ready bool) {
+func (ol OperationList) Do(state TextureState) TextureState {
 	for _, o := range ol {
-		ready = o.Do(t) || ready
+		state = o.Do(state)
 	}
-	return
+	return state
 }
 
 var UpdateOp = updateOp{}
 
 type updateOp struct{}
 
-func (op updateOp) Do(t screen.Texture) bool {
-	return true
+func (op updateOp) Do(state TextureState) TextureState {
+	return state 
 }
 
-type OperationFunc func(t screen.Texture)
+type OperationFunc func(state TextureState) TextureState
 
-func (f OperationFunc) Do(t screen.Texture) bool {
-	f(t)
-	return false
+func (f OperationFunc) Do(state TextureState) TextureState {
+	return f(state)
 }
+
+
+type ColorFill struct {
+	Color color.Color
+}
+
+func (op ColorFill) Do(state TextureState) TextureState {
+	state.Background = op.Color
+	return state
+}
+
 
 type BgRect struct {
 	X1, Y1, X2, Y2 float64
 }
 
-func (op BgRect) Do(t screen.Texture) bool {
+func (op BgRect) Do(state TextureState) TextureState {
+	state.BgRect = &op 
+	return state
+}
+
+func (op BgRect) Draw(t screen.Texture) {
 	bounds := t.Bounds()
 	rect := image.Rect(
 		int(float64(bounds.Dx())*op.X1),
@@ -48,69 +63,78 @@ func (op BgRect) Do(t screen.Texture) bool {
 		int(float64(bounds.Dy())*op.Y2),
 	)
 	t.Fill(rect, color.Black, screen.Src)
-	return false
 }
+
 
 type Figure struct {
 	X, Y float64
 }
 
-func (op Figure) Do(t screen.Texture) bool {
-	drawFigure(t, op.X, op.Y)
-	return false
+func (op Figure) Do(state TextureState) TextureState {
+	state.Figures = append(state.Figures, op) 
+	return state
 }
+
+func (op Figure) Draw(t screen.Texture) {
+	drawFigureShape(t, op.X, op.Y)
+}
+
 
 type Move struct {
 	X, Y float64
 }
 
-func (op Move) Do(t screen.Texture) bool {
-	// Move operation needs to be handled by the Loop's state
-	// This is just a placeholder implementation
-	return false
+func (op Move) Do(state TextureState) TextureState {
+	return state
 }
 
 type Reset struct{}
 
-func (op Reset) Do(t screen.Texture) bool {
-	t.Fill(t.Bounds(), color.Black, screen.Src)
-	return true
+func (op Reset) Do(state TextureState) TextureState {
+	state.Background = color.Black 
+	state.BgRect = nil            
+	state.Figures = nil           
+	return state
 }
 
-func WhiteFill(t screen.Texture) {
-	t.Fill(t.Bounds(), color.White, screen.Src)
+
+func WhiteFill(state TextureState) TextureState {
+	state.Background = color.White
+	return state
 }
 
-func GreenFill(t screen.Texture) {
-	t.Fill(t.Bounds(), color.RGBA{G: 0xff, A: 0xff}, screen.Src)
+func GreenFill(state TextureState) TextureState {
+	state.Background = color.RGBA{G: 0xff, A: 0xff}
+	return state
 }
 
-func drawFigure(t screen.Texture, x, y float64) {
+
+func drawFigureShape(t screen.Texture, x, y float64) {
 	bounds := t.Bounds()
 	centerX := int(float64(bounds.Max.X) * x)
 	centerY := int(float64(bounds.Max.Y) * y)
-	
-	verticalWidth := 200  
-	verticalHeight := 50  
+
+	verticalWidth := 200
+	verticalHeight := 50
 	horizontalWidth := 50
 	horizontalHeight := 200
 
 	mainRect := image.Rect(
-			centerX-verticalWidth/2, 
-			centerY-verticalHeight/2,
-			centerX+verticalWidth/2, 
-			centerY+verticalHeight/2,
+		centerX-verticalWidth/2,
+		centerY-verticalHeight/2,
+		centerX+verticalWidth/2,
+		centerY+verticalHeight/2,
 	)
-	
+
 	extensionRect := image.Rect(
-			centerX-verticalWidth/2 - horizontalWidth, 
-			centerY-horizontalHeight/2,
-			centerX-verticalWidth/2, 
-			centerY+horizontalHeight/2,
+		centerX-verticalWidth/2-horizontalWidth,
+		centerY-horizontalHeight/2,
+		centerX-verticalWidth/2,
+		centerY+horizontalHeight/2,
 	)
-	
+
 	figureColor := color.RGBA{B: 255, A: 255}
-	
+
 	t.Fill(mainRect, figureColor, screen.Src)
 	t.Fill(extensionRect, figureColor, screen.Src)
 }

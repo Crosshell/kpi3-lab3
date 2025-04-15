@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/roman-mazur/architecture-lab-3/painter"
+	"image/color"
 )
 
 type Parser struct{}
@@ -31,9 +32,9 @@ func (p *Parser) Parse(in io.Reader) ([]painter.Operation, error) {
 
 		switch command {
 		case "white":
-			ops = append(ops, painter.OperationFunc(painter.WhiteFill))
+			ops = append(ops, painter.ColorFill{Color: color.White})
 		case "green":
-			ops = append(ops, painter.OperationFunc(painter.GreenFill))
+			ops = append(ops, painter.ColorFill{Color: color.RGBA{G: 0xff, A: 0xff}})
 		case "update":
 			ops = append(ops, painter.UpdateOp)
 		case "bgrect":

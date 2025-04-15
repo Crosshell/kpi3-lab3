@@ -36,7 +36,7 @@ type TextureState struct {
 func (l *Loop) Start(s screen.Screen) {
 	l.next, _ = s.NewTexture(size)
 	l.prev, _ = s.NewTexture(size)
-	l.state = TextureState{Background: color.Black}
+	l.state = TextureState{Background: color.White}
 	l.stopChan = make(chan struct{})
 
 	go func() {
@@ -48,16 +48,30 @@ func (l *Loop) Start(s screen.Screen) {
 				op := l.mq.pull()
 				if op != nil {
 					l.stateMu.Lock()
-					if update := op.Do(l.next); update {
-						l.Receiver.Update(l.next)
-						l.next, l.prev = l.prev, l.next
-					}
+					updatedState := op.Do(l.state)
+					l.state = updatedState
+					l.drawFrame()
 					l.stateMu.Unlock()
 				}
 			}
 		}
 	}()
 }
+
+func (l *Loop) drawFrame() {
+	l.next.Fill(l.next.Bounds(), l.state.Background, screen.Src)
+
+	if l.state.BgRect != nil {
+		l.state.BgRect.Draw(l.next)
+	}
+
+	for _, fig := range l.state.Figures {
+		fig.Draw(l.next)
+	}
+	l.Receiver.Update(l.next)
+	l.next, l.prev = l.prev, l.next
+}
+
 
 func (l *Loop) Post(op Operation) {
 	l.mq.push(op)

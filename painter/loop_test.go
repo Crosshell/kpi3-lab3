@@ -16,26 +16,30 @@ func TestLoop_Post(t *testing.T) {
 		tr testReceiver
 	)
 	l.Receiver = &tr
+	l.state = TextureState{Background: color.Black} 
 
 	var testOps []string
 
 	l.Start(mockScreen{})
-	l.Post(logOp(t, "do white fill", WhiteFill))
-	l.Post(logOp(t, "do green fill", GreenFill))
+	l.Post(logOp(t, "do white fill", ColorFill{Color: color.White}))
+	l.Post(logOp(t, "do green fill", ColorFill{Color: color.RGBA{G: 0xff, A: 0xff}}))
 	l.Post(UpdateOp)
 
 	for i := 0; i < 3; i++ {
-		go l.Post(logOp(t, "do green fill", GreenFill))
+		go l.Post(logOp(t, "do green fill", ColorFill{Color: color.RGBA{G: 0xff, A: 0xff}}))
 	}
 
-	l.Post(OperationFunc(func(screen.Texture) {
+	l.Post(operationFunc(func(state TextureState) TextureState {
 		testOps = append(testOps, "op 1")
-		l.Post(OperationFunc(func(screen.Texture) {
+		l.Post(operationFunc(func(state TextureState) TextureState {
 			testOps = append(testOps, "op 2")
+			return state
 		}))
+		return state
 	}))
-	l.Post(OperationFunc(func(screen.Texture) {
+	l.Post(operationFunc(func(state TextureState) TextureState {
 		testOps = append(testOps, "op 3")
+		return state
 	}))
 
 	l.StopAndWait()
@@ -47,24 +51,35 @@ func TestLoop_Post(t *testing.T) {
 	if !ok {
 		t.Fatal("Unexpected texture", tr.lastTexture)
 	}
-	if mt.Colors[0] != color.White {
-		t.Error("First color is not white:", mt.Colors)
+	if len(mt.Colors) > 0 {
+		lastColor := mt.Colors[len(mt.Colors)-1]
+		if _, ok := lastColor.(color.RGBA); !ok || lastColor.(color.RGBA) != (color.RGBA{G: 0xff, A: 0xff}) {
+			t.Errorf("Last color is not green, or not RGBA: %+v, Colors: %+v", lastColor, mt.Colors)
+		}
+	} else {
+		t.Error("No colors were filled in mockTexture, but updates should have occurred.")
 	}
-	if len(mt.Colors) != 2 {
-		t.Error("Unexpected size of colors:", mt.Colors)
-	}
+
 
 	if !reflect.DeepEqual(testOps, []string{"op 1", "op 2", "op 3"}) {
 		t.Error("Bad order:", testOps)
 	}
 }
 
-func logOp(t *testing.T, msg string, op OperationFunc) OperationFunc {
-	return func(tx screen.Texture) {
-		t.Log(msg)
-		op(tx)
-	}
+type operationFunc func(state TextureState) TextureState
+
+func (f operationFunc) Do(state TextureState) TextureState {
+	return f(state)
 }
+
+
+func logOp(t *testing.T, msg string, op Operation) Operation {
+	return operationFunc(func(state TextureState) TextureState {
+		t.Log(msg, reflect.TypeOf(op))
+		return op.Do(state)
+	})
+}
+
 
 type testReceiver struct {
 	lastTexture screen.Texture
@@ -81,7 +96,7 @@ func (m mockScreen) NewBuffer(size image.Point) (screen.Buffer, error) {
 }
 
 func (m mockScreen) NewTexture(size image.Point) (screen.Texture, error) {
-	return new(mockTexture), nil
+	return &mockTexture{Colors: []color.Color{}}, nil 
 }
 
 func (m mockScreen) NewWindow(opts *screen.NewWindowOptions) (screen.Window, error) {
