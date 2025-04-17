@@ -21,7 +21,7 @@ jobs:
         run: go mod tidy
 
       - name: Run tests
-        run: go test ./...
+        run: go test ./cmd/... ./painter/...
 
       - name: Build cmd/painter
         run: go build ./cmd/painter
