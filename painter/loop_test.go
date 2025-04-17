@@ -6,6 +6,7 @@ import (
 	"image/draw"
 	"reflect"
 	"testing"
+	"time"
 
 	"golang.org/x/exp/shiny/screen"
 )
@@ -31,17 +32,19 @@ func TestLoop_Post(t *testing.T) {
 
 	l.Post(operationFunc(func(state TextureState) TextureState {
 		testOps = append(testOps, "op 1")
-		l.Post(operationFunc(func(state TextureState) TextureState {
-			testOps = append(testOps, "op 2")
-			return state
-		}))
+		return state
+	}))
+	l.Post(operationFunc(func(state TextureState) TextureState {
+		testOps = append(testOps, "op 2")
 		return state
 	}))
 	l.Post(operationFunc(func(state TextureState) TextureState {
 		testOps = append(testOps, "op 3")
 		return state
 	}))
+	
 
+	time.Sleep(100 * time.Millisecond) 
 	l.StopAndWait()
 
 	if tr.lastTexture == nil {

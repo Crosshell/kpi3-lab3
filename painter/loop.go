@@ -36,7 +36,10 @@ type TextureState struct {
 func (l *Loop) Start(s screen.Screen) {
 	l.next, _ = s.NewTexture(size)
 	l.prev, _ = s.NewTexture(size)
-	l.state = TextureState{Background: color.White}
+	// l.state = TextureState{Background: color.White}
+	if l.state.Background == nil {
+		l.state.Background = color.White
+	}
 	l.stopChan = make(chan struct{})
 
 	go func() {
@@ -46,16 +49,18 @@ func (l *Loop) Start(s screen.Screen) {
 				return
 			default:
 				op := l.mq.pull()
-				if op != nil {
-					l.stateMu.Lock()
-					updatedState := op.Do(l.state)
-					l.state = updatedState
-					l.drawFrame()
-					l.stateMu.Unlock()
-				}
+				if op == nil {
+					break // вихід з циклу
+				} 
+				l.stateMu.Lock()
+				updatedState := op.Do(l.state)
+				l.state = updatedState
+				l.drawFrame()
+				l.stateMu.Unlock()
+				
 			}
 		}
-	}()
+	}()	
 }
 
 func (l *Loop) drawFrame() {
@@ -79,7 +84,8 @@ func (l *Loop) Post(op Operation) {
 
 func (l *Loop) StopAndWait() {
 	l.stopReq = true
-	l.stopChan <- struct{}{}
+	close(l.stopChan)     // сигнал завершення
+	l.mq.push(nil)        // спеціальна nil-операція, щоб розблокувати pull
 }
 
 type messageQueue struct {
