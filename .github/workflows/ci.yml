@@ -23,5 +23,9 @@ jobs:
       - name: Run tests
         run: go test ./cmd/... ./painter/...
 
+      - name: Create bin folder
+        run: mkdir -p bin
+
       - name: Build cmd/painter
-        run: go build ./cmd/painter
+        run: go build -o bin/painter ./cmd/painter
+
