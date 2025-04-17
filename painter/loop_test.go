@@ -17,7 +17,7 @@ func TestLoop_Post(t *testing.T) {
 		tr testReceiver
 	)
 	l.Receiver = &tr
-	l.state = TextureState{Background: color.Black} 
+	l.state = TextureState{Background: color.Black}
 
 	var testOps []string
 
@@ -42,9 +42,8 @@ func TestLoop_Post(t *testing.T) {
 		testOps = append(testOps, "op 3")
 		return state
 	}))
-	
 
-	time.Sleep(100 * time.Millisecond) 
+	time.Sleep(100 * time.Millisecond)
 	l.StopAndWait()
 
 	if tr.lastTexture == nil {
@@ -63,7 +62,6 @@ func TestLoop_Post(t *testing.T) {
 		t.Error("No colors were filled in mockTexture, but updates should have occurred.")
 	}
 
-
 	if !reflect.DeepEqual(testOps, []string{"op 1", "op 2", "op 3"}) {
 		t.Error("Bad order:", testOps)
 	}
@@ -75,14 +73,12 @@ func (f operationFunc) Do(state TextureState) TextureState {
 	return f(state)
 }
 
-
 func logOp(t *testing.T, msg string, op Operation) Operation {
 	return operationFunc(func(state TextureState) TextureState {
 		t.Log(msg, reflect.TypeOf(op))
 		return op.Do(state)
 	})
 }
-
 
 type testReceiver struct {
 	lastTexture screen.Texture
@@ -99,7 +95,7 @@ func (m mockScreen) NewBuffer(size image.Point) (screen.Buffer, error) {
 }
 
 func (m mockScreen) NewTexture(size image.Point) (screen.Texture, error) {
-	return &mockTexture{Colors: []color.Color{}}, nil 
+	return &mockTexture{Colors: []color.Color{}}, nil
 }
 
 func (m mockScreen) NewWindow(opts *screen.NewWindowOptions) (screen.Window, error) {
